@@ -1,6 +1,9 @@
 import os
 from openai import OpenAI
 import gradio as gr
+import uuid
+import chromadb
+from pprint import pprint
 
 
 
@@ -77,6 +80,290 @@ Aditional Info:
 Carter Dixon is a passionate soccer player and fan. He has played soccer for many years and enjoys both playing and watching the sport. He is a Fan of Arsenal. He follows major soccer leagues and tournaments, and he has a deep understanding of the game, including strategies, player skills, and team dynamics."guitar" : "Carter Dixon is an avid guitar player and music enthusiast. He has been playing the guitar for several years and enjoys exploring different genres of music. \
 He loves playing both acoustic and electric guitar, and he often shares his musical experiences with friends and fellow musicians. He has a collection of guitars and is always looking to improve his skills and learn new techniques.",
 """
+
+document_education = """
+This is Carter's College Transcript with all the classes Carter took.
+Print Date: 04/14/2026
+
+Academic Program
+
+Program: Undergraduate
+
+Information Technology - BS Major
+Mathematics Minor
+Beginning of Undergraduate Record
+Fall Semester 2022
+
+Course Description Attempted Earned Grade Points
+BIO 103 CONTEMPORARY BIOLOGY 3.00 3.00 A 12.000
+CS 101 INTRO TO COMPUTER SCIENCE 3.00 3.00 A 12.000
+GER 101 ELEMENTARY GERMAN I 4.00 4.00 A 16.000
+ISAT 160 PROB SOLVING APP IN SCI & TECH 3.00 3.00 A 12.000
+POSC 225 U.S. GOVERNMENT 4.00 4.00 A 16.000
+Attempted Earned Points
+Term GPA 4.000 Term Totals 17.00 17.00 68.000
+Cum GPA 4.000 Cum Totals 17.00 17.00 68.000
+Term Honor: President's List
+Academic Good Standing
+
+Spring Semester 2023
+
+Course Description Attempted Earned Grade Points
+CS 149 INTRODUCTION TO PROGRAMMING 3.00 3.00 B- 8.100
+ENG 239 STUDIES IN WORLD LITERATURE 3.00 3.00 B+ 9.900
+Topic: Modern South Asian Lit
+GER 102 ELEMENTARY GERMAN II 4.00 4.00 A- 14.800
+MATH 231 CALCULUS WITH FUNCTIONS I 3.00 3.00 B+ 9.900
+SCOM 123 FUND HUMAN COMM: GROUP PRES 3.00 3.00 A- 11.100
+WRTC 103 RHETORICAL READING AND WRITING 3.00 3.00 A 12.000
+Attempted Earned Points
+Term GPA 3.463 Term Totals 19.00 19.00 65.800
+Cum GPA 3.716 Cum Totals 36.00 36.00 133.800
+Academic Good Standing
+
+Fall Semester 2023
+
+Course Description Attempted Earned Grade Points
+CS 159 ADVANCED PROGRAMMING 3.00 3.00 B- 8.100
+CS 227 DISCRETE STRUCTURES I 3.00 3.00 B 9.000
+GER 231 INTERMEDIATE GERMAN I 3.00 3.00 A 12.000
+HIST 101 WORLD HISTORY TO 1500 3.00 3.00 B 9.000
+MATH 232 CALC WITH FUNCTIONS II 3.00 3.00 B 9.000
+POSC 498 RESEARCH IN POLITICAL SCIENCE 1.00 1.00 A- 3.700
+Attempted Earned Points
+Term GPA 3.175 Term Totals 16.00 16.00 50.800
+Cum GPA 3.550 Cum Totals 52.00 52.00 184.600
+Academic Good Standing
+
+Spring Semester 2024
+
+Course Description Attempted Earned Grade Points
+CHEM 131 GENERAL CHEMISTRY I 3.00 3.00 B- 8.100
+CHEM 131L GENERAL CHEMISTRY LAB 1.00 1.00 A- 3.700
+GER 232 INTERMEDIATE GERMAN II 3.00 3.00 A- 11.100
+IT 212 DIGITAL ELECTRONICS 3.00 3.00 B+ 9.900
+IT 215 TELECOM, NETWORKING & SECURITY 3.00 3.00 A- 11.100
+IT 240 DATABASE ADMINISTRATION 3.00 3.00 B 9.000
+MATH 236 CALCULUS II 4.00 4.00 B- 10.800
+POSC 498 RESEARCH IN POLITICAL SCIENCE 1.00 1.00 A 4.000
+Attempted Earned Points
+Term GPA 3.223 Term Totals 21.00 21.00 67.700
+Cum GPA 3.456 Cum Totals 73.00 73.00 252.300
+Academic Good Standing
+
+Summer Session 2024
+
+Course Description Attempted Earned Grade Points
+MATH 318 INTRO TO PROB & STAT 4.00 4.00 A 16.000
+Attempted Earned Points
+Term GPA 4.000 Term Totals 4.00 4.00 16.000
+Cum GPA 3.484 Cum Totals 77.00 77.00 268.300
+Academic Good Standing
+
+Fall Semester 2024
+
+Course Description Attempted Earned Grade Points
+GER 300 GRAMMAR AND COMMUNICATION 3.00 3.00 B 9.000
+IT 203 INFORMATION SECURITY & PRIVACY 3.00 3.00 A 12.000
+IT 301 WEB TECHNOLOGIES 3.00 3.00 B 9.000
+IT 333 ADV NETWORKING FOR IT 3.00 3.00 D 3.000
+MATH 237 CALCULUS III 4.00 4.00 A- 14.800
+Attempted Earned Points
+Term GPA 2.987 Term Totals 16.00 16.00 47.800
+
+Cum GPA 3.398 Cum Totals 93.00 93.00 316.100
+Academic Good Standing
+
+Spring Semester 2025
+
+Course Description Attempted Earned Grade Points
+GER 320 ORAL AND WRITTEN COMMUNICATION 3.00 3.00 A- 11.100
+IT 311 OPERATING SYSTEMS ADMIN 3.00 3.00 A- 11.100
+IT 313 COMMUNITY PROJECTS 3.00 3.00 A 12.000
+IT 340 DATA SCI & MACHINE LEARNING 3.00 3.00 A 12.000
+IT 347 INTERACTIVE COMPUTING SYSTEMS 3.00 3.00 A- 11.100
+Attempted Earned Points
+Term GPA 3.820 Term Totals 15.00 15.00 57.300
+Cum GPA 3.457 Cum Totals 108.00 108.00 373.400
+Term Honor: Dean's List
+Academic Good Standing
+
+Summer Session 2025
+
+Course Description Attempted Earned Grade Points
+KIN 100 LIFETIME FITNESS & WELLNESS 3.00 3.00 A 12.000
+Topic: PHYSICAL ACTIVITY FOR LIFE
+SOCI 140 MICROSOCIOLOGY 3.00 3.00 A 12.000
+Attempted Earned Points
+Term GPA 4.000 Term Totals 6.00 6.00 24.000
+Cum GPA 3.485 Cum Totals 114.00 114.00 397.400
+Academic Good Standing
+
+Fall Semester 2025
+
+Course Description Attempted Earned Grade Points
+ANTH 195 CULTURAL ANTHROPOLOGY 3.00 3.00 B+ 9.900
+ART 200 ART TODAY: CONTEMPORARY ART 3.00 3.00 A 12.000
+IT 302 SOC & ETHICAL ISSUES IN IT 3.00 3.00 A- 11.100
+IT 444 CAPSTONE PROJECT DESIGN 1.00 1.00 B+ 3.300
+IT 480 SELECTED TOPICS IN IT 3.00 3.00 A- 11.100
+Topic: DEEP LEARNING
+MATH 322 APPLIED LINEAR REGRESSION 3.00 3.00 B- 8.100
+POSC 498 RESEARCH IN POLITICAL SCIENCE 1.00 1.00 A 4.000
+Attempted Earned Points
+Term GPA 3.500 Term Totals 17.00 17.00 59.500
+Cum GPA 3.487 Cum Totals 131.00 131.00 456.900
+Term Honor: Dean's List
+Academic Good Standing
+
+Spring Semester 2026
+
+Course Description Attempted Earned Grade Points
+GER 330 BUSINESS GERMAN 3.00 0.00 0.000
+IT 445 CAPSTONE PROJ IMPLEMENT 3.00 0.00 0.000
+IT 460 ADVANCED CYBERSECURITY 3.00 0.00 0.000
+IT 480 SELECTED TOPICS IN IT 3.00 0.00 0.000
+Topic: TOPICS IN DATA VISUALIZATION
+
+Attempted Earned Points
+Term GPA 0.000 Term Totals 12.00 0.00 0.000
+Cum GPA 3.487 Cum Totals 131.00 131.00 456.900
+Undergraduate Career Totals
+
+Attempted Earned Points
+Cum GPA 3.487 Cum Totals 131.00 131.00 456.900
+
+End of Unofficial Transcript"""
+
+documents_skills_and_interests = """Skills: Python, Java, JavaScript, HTML, CSS, SQL, R, LaTeX, Windows OS, Linux, Jupyter, Keras, Matplotlib, Pandas, Scikit Learn, TensorFlow, Convolutional Neural Networks, Python LLMs, MongoDB, Tableau, Agentic AI, German, VMware, Seaborn, Plotly, YOLO 
+Certs: DoD Secret Clearance, Wallstreet Prep Analyzing Financial Reports, Accounting and Excel Course, LinkedIn Learning Tableau 
+
+Interests: Band manager, Soccer (Arsenal), Guitar, Volunteering, Photography, Reading, Hiking, Traveling, Cooking & Philosophy
+"""
+
+
+#------------------------------------------
+# Chunking Function
+#------------------------------------------
+
+def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list[str]:
+    """
+    Split `text` into overlapping chunks of up to `chunk_size` characters,
+    each overlapping the previous chunk by `overlap` characters.
+
+    If a chunk would end mid-sentence/paragraph, the cut point moves back
+    to the nearest natural boundary, in priority order:
+        1. paragraph break ("\\n\\n")
+        2. newline ("\\n")
+        3. sentence end (". ", "! ", "? ")
+        4. whitespace (" ")
+    A boundary is only used if it's past the halfway point of the chunk.
+    """
+    n = len(text)
+    if n == 0:
+        return []
+
+    chunks = []
+    start = 0
+
+    while start < n:
+        end = min(start + chunk_size, n)
+        if end < n:
+            halfway = start + chunk_size // 2
+            window = text[start:end]
+            boundary = None
+            idx = window.rfind("\n\n")
+            if idx != -1 and start + idx > halfway:
+                boundary = start + idx + 2
+            if boundary is None:
+                idx = window.rfind("\n")
+                if idx != -1 and start + idx > halfway:
+                    boundary = start + idx + 1
+            if boundary is None:
+                for punct in (". ", "! ", "? "):
+                    idx = window.rfind(punct)
+                    if idx != -1 and start + idx > halfway:
+                        boundary = start + idx + len(punct)
+                        break
+            if boundary is None:
+                idx = window.rfind(" ")
+                if idx != -1 and start + idx > halfway:
+                    boundary = start + idx + 1
+            if boundary is not None:
+                end = boundary
+        chunks.append(text[start:end])
+        if end >= n:
+            break
+        start = end - overlap
+    return chunks
+
+
+#------------------------------------------
+# RAG: Chunk, embed, and store in ChromaDB
+#------------------------------------------
+
+documents = [
+    {"text": document_overview, "source": "Personal Experience"},
+    {"text": document_education, "source": "College Transcript"},
+    {"text": documents_skills_and_interests, "source": "Skills and Interests"}
+]
+
+chunks = []
+ids = []
+metadatas = []
+
+for doc in documents:
+    chunks_ = chunk_text(doc["text"], chunk_size=300, overlap=30)
+    ids_ = [str(uuid.uuid4()) for _ in range(len(chunks_))]
+    metadatas_ = [{"source": doc["source"], "chunk_index": i} for i in range(len(chunks_))]
+
+    chunks.extend(chunks_)
+    ids.extend(ids_)
+    metadatas.extend(metadatas_)
+print(f"Creatd {len(chunks)} chunks \n")
+
+for i, chunk in enumerate(chunks): 
+    print(f"--- Chunk {i + 1} (ID: {ids[i]}, Source: {metadatas[i]['source']}, Index: {metadatas[i]['chunk_index']}):")
+    print(chunk)
+    print()
+
+# Generate embeddings
+response = client.embeddings.create(
+    model = "text-embedding-3-small",
+    input = chunks
+)
+
+embeddings = [item.embedding for item in response.data]
+
+# Initialize ChromaDB and Store Vectors
+# Initialize ChromaDB client (persistent storage)
+chroma_client = chromadb.PersistentClient(path="./chroma_db_twin")
+
+# Initialize ChromaDB client (in memory storage)
+# chroma_client = chromadb.Client()
+
+collection = chroma_client.get_or_create_collection(name="digital_twin")
+
+if collection.get()["ids"]:
+    collection.delete(collection.get()["ids"])
+
+pprint(collection.get())
+
+# Prepare data for storage
+# chroma allows users to create their own ids for each document
+
+collection.add(
+    ids = ids, 
+    # by default embeddings gets returned as none
+    embeddings = embeddings, # we have this already 
+    documents = chunks, # we have this already
+    metadatas = metadatas
+)
+
+pprint(collection.get())
+
+print(embeddings)
+
 
 #------------------------------------------
 # System Message
