@@ -4,6 +4,9 @@ import gradio as gr
 import uuid
 import chromadb
 from pprint import pprint
+import json
+import random
+import requests
 
 
 
@@ -347,7 +350,6 @@ collection = chroma_client.get_or_create_collection(name="digital_twin")
 if collection.get()["ids"]:
     collection.delete(collection.get()["ids"])
 
-pprint(collection.get())
 
 # Prepare data for storage
 # chroma allows users to create their own ids for each document
@@ -362,7 +364,93 @@ collection.add(
 
 pprint(collection.get())
 
-print(embeddings)
+#------------------------------------------
+# Tools
+#------------------------------------------
+
+tools = []
+
+
+pushover_user = os.getenv("PUSHOVER_USER") 
+pushover_token = os.getenv("PUSHOVER_TOKEN")
+pushover_url =  "https://api.pushover.net/1/messages.json"
+
+# Function that sends the notification
+def send_notifications(message: str):
+    payload = {"user": pushover_user, "token": pushover_token, "message": message}
+    requests.post(pushover_url, data=payload)
+
+send_notifications_function = { # list of tools the LLM can use, this is done in json, 
+    "name": "send_notifications",
+    "description": "Sends a push notification to real-world version of you via Pushover. Use this to alert the user about important events, completed tasks, or time-semsetive information.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "message": {
+                "type": "string", 
+                "description": "The notification message to send to the user's device"
+            } 
+        },
+        "required": ["message"]
+    }
+}
+
+# Add Pushover to the list of tools for the LLM 
+tools.append({"type":"function", "function" : send_notifications_function})
+
+# Simulates rolling a single six-sided die 
+def dice_roll():
+    results = random.randint(1, 6)
+    return results
+
+# Describe functions
+roll_dice_function = {
+    "name": "dice_roll",
+    "description": "Rolls an imaginary 6-sided dice to give a random number 1-6 as the output.",
+    "parameters": {
+        "type": "object",
+        "properties": {}, # Keep this here because there are no properties
+        "required": []
+    }
+}
+
+# Add function to the list of tools of LLM
+tools.append({"type":"function", "function": roll_dice_function})
+#------------------------------------------
+# Tool handlers
+#------------------------------------------
+
+def handle_tool_call(tool_calls):
+    tool_results = []
+
+    for tool_call in tool_calls:
+        function_name = tool_call.function.name
+
+        # tool_call = tool_calls[0] # we are assuming just one tool call, was messages.tool_calls[0]
+        args = json.loads(tool_call.function.arguments)
+        print(f"Calling function {function_name}")
+
+        if function_name == "send_notifications":
+            # Auctually extract the information i.e. call the tool
+            send_notifications(args["message"])
+            content = f"Notification sent: {args['message']}"
+        elif function_name == "dice_roll":
+            content = f"Rolled: {dice_roll()}"
+        # elif function_name == "insert_function_name_3":
+        #   content = insert_function_name_3(args['message'])
+        # ...
+        else:
+            content = f"Unknown function: {function_name}"
+
+        # returns what to add to our "context" (about tool call results), a dictionary
+        tool_call_result = {
+            "role": "tool", 
+            "content": content,
+            "tool_call_id": tool_call.id
+        }
+        tool_results.append(tool_call_result)
+    return tool_results
+
 
 
 #------------------------------------------
@@ -383,23 +471,57 @@ Important: do not make up information about Carter Dixon. If you do not know the
 #------------------------------------------
 
 def respond_ai(message, history):
-    # Update system message with context for this conversation turn
-    system_message_enhanced = system_message + "\n\nContext:\n" + document_overview + "\n\nConversation History:\n" + str(history)
+# RAG
+    reponse = client.embeddings.create(
+        model = "text-embedding-3-small",
+        input = [message]
+    )
+    query_embedding = reponse.data[0].embedding
 
-    # Logs for debugging
+    # Search ChromaDB
+    results = collection.query(
+        query_embeddings = [query_embedding],
+        n_results = 3,
+    )
+
+    # Stitch retrieved chunks together to create the context for the response
+    context = "\n---\n".join(results['documents'][0])
     print("\n=======================================")
-    print("***User message:\n", message)
-    print("\n***Context this turn:\n", system_message_enhanced)
+    print("***Retrieved Chunks:")
+    for a, b in zip(results['documents'][0], results['metadatas'][0]):
+        print(f"<<Document {b['source']} -- Chunk: {b['chunk_index']}>>\n{a}\n")
+
+
+    # Update system message with context for this conversation turn
+    system_message_enhanced = system_message + "\n\nContext:\n" + context
 
     # Build messages for this turn
     messages = [{"role": "system", "content": system_message_enhanced}] + history + [{"role": "user", "content": message}]
     response = client.chat.completions.create(
         model = "gpt-4.1-mini",
         messages = messages, 
+        tools = tools,
     )
 
     # Check if the model wants to call a tool
     message = response.choices[0].message
+
+    while message.tool_calls:
+        from pprint import pprint
+        pprint(message.tool_calls)
+
+        tool_result = handle_tool_call(message.tool_calls)
+        messages.append(message)
+        messages.extend(tool_result)
+
+        response = client.chat.completions.create(
+            model = "gpt-4.1-mini", 
+            messages=messages, 
+            tools=tools
+        )
+
+        message = response.choices[0].message
+
     return(message.content) 
 
     # reply = response.choices[0].message.content
