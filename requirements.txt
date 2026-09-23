@@ -1,4 +1,10 @@
+<<<<<<< HEAD
 openai
 gradio
 chromadb
 requets
+=======
+openai
+gradio
+chromadb
+>>>>>>> b865698d6b741abebd4c73e6363263dcdcc8b537
